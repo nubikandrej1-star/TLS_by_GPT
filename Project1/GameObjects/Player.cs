@@ -1,29 +1,19 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection.Metadata;
-using System.Text;
-using System.Threading.Tasks;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using The_Last_Signal;
 
 namespace TLS.GameObjects
 {
     public class Player
     {
-        #region Fields
-        private static Player? _elum = null;
-        private AnimatedCollisionObject _collisionSprite;
-        #endregion
+        private static Player? _elum;
+        private readonly AnimatedCollisionObject _collisionSprite;
 
-        #region constructors and methods who return _elum
         private Player(Texture2D texture2D)
         {
             _collisionSprite = new AnimatedCollisionObject(texture2D, new Rectangle(1, 0, 22, 64));
         }
+
         public static Player CreatePlayer(Texture2D texture2D)
         {
             if (_elum == null)
@@ -34,31 +24,16 @@ namespace TLS.GameObjects
             return _elum;
         }
 
-        public static Player? GetPlayer()
-        {
-            return _elum;
-        }
-        #endregion
+        public static Player? GetPlayer() => _elum;
 
-        #region functions
-        public void Draw(SpriteBatch spriteBatch)
-        {
-            _collisionSprite.Draw(spriteBatch);
-        }
+        public Rectangle Bounds => _collisionSprite.Hitbox;
 
-        public void Update(GameTime gameTime, KeyboardState state)
-        {
-            Walk(gameTime, state);
-        }
+        public void Draw(SpriteBatch spriteBatch) => _collisionSprite.Draw(spriteBatch);
 
-        private void Walk(GameTime gameTime, KeyboardState state)
+        public void Update(GameTime gameTime, KeyboardState state, StationRoom room)
         {
             float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
-
-            float speed = state.IsKeyDown(Keys.LeftShift)
-                ? 250f
-                : 120f;
-
+            float speed = state.IsKeyDown(Keys.LeftShift) ? 250f : 120f;
             Vector2 direction = Vector2.Zero;
 
             if (state.IsKeyDown(Keys.D))
@@ -66,50 +41,35 @@ namespace TLS.GameObjects
                 direction.X++;
                 _collisionSprite.Effects = SpriteEffects.None;
             }
-
             if (state.IsKeyDown(Keys.A))
             {
                 direction.X--;
                 _collisionSprite.Effects = SpriteEffects.FlipHorizontally;
             }
+            if (state.IsKeyDown(Keys.S)) direction.Y++;
+            if (state.IsKeyDown(Keys.W)) direction.Y--;
 
-            if (state.IsKeyDown(Keys.S))
-            {
-                direction.Y++;
-            }
+            if (direction == Vector2.Zero)
+                return;
 
-            if (state.IsKeyDown(Keys.W))
-            {
-                direction.Y--;
-            }
+            direction.Normalize();
+            float moveX = direction.X * speed * deltaTime;
+            float moveY = direction.Y * speed * deltaTime;
 
-            if (direction != Vector2.Zero)
-            {
-                direction.Normalize();
+            Rectangle nextX = _collisionSprite.Hitbox;
+            nextX.Offset((int)moveX, 0);
+            if (!room.Intersects(nextX))
+                _collisionSprite.Position += new Vector2(moveX, 0);
 
-                Room room = GameTLS.rooms[GameTLS.currentRoom];
-
-                float moveX = direction.X * speed * deltaTime;
-                float moveY = direction.Y * speed * deltaTime;
-
-                Rectangle nextX = _collisionSprite.Hitbox;
-                nextX.Offset(moveX, 0);
-
-                if (!room.Intersects(nextX, HitboxType.StopWalking))
-                    _collisionSprite.Position += new Vector2(moveX, 0);
-
-                Rectangle nextY = _collisionSprite.Hitbox;
-                nextY.Offset(0, moveY);
-
-                if (!room.Intersects(nextY, HitboxType.StopWalking))
-                    _collisionSprite.Position += new Vector2(0, moveY);
-            }
+            Rectangle nextY = _collisionSprite.Hitbox;
+            nextY.Offset(0, (int)moveY);
+            if (!room.Intersects(nextY))
+                _collisionSprite.Position += new Vector2(0, moveY);
         }
 
         public void TeleportTo(Vector2 position)
         {
             _collisionSprite.Position = position;
         }
-        #endregion
     }
 }
