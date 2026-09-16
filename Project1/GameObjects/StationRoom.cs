@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -21,18 +20,13 @@ namespace TLS.GameObjects
             Build();
         }
 
-        public void SetPower(bool restored)
-        {
-            PowerRestored = restored;
-        }
+        public void SetPower(bool restored) => PowerRestored = restored;
 
         public bool Intersects(Rectangle rectangle)
         {
             foreach (RoomObject obj in _objects)
-            {
                 if (obj.BlocksMovement && obj.Bounds.Intersects(rectangle))
                     return true;
-            }
             return false;
         }
 
@@ -40,22 +34,13 @@ namespace TLS.GameObjects
         {
             Rectangle area = playerBounds;
             area.Inflate(18, 18);
-
             foreach (RoomObject obj in _objects)
             {
-                if (!area.Intersects(obj.Bounds))
-                    continue;
-
-                if (obj.Type == RoomObjectType.Generator && !PowerRestored)
-                    return obj;
-
-                if (obj.Type == RoomObjectType.Radio)
-                    return obj;
-
-                if (obj.Type == RoomObjectType.Door && (!obj.RequiresPower || PowerRestored))
-                    return obj;
+                if (!area.Intersects(obj.Bounds)) continue;
+                if (obj.Type == RoomObjectType.Generator && !PowerRestored) return obj;
+                if (obj.Type == RoomObjectType.Radio) return obj;
+                if (obj.Type == RoomObjectType.Door && (!obj.RequiresPower || PowerRestored)) return obj;
             }
-
             return null;
         }
 
@@ -64,11 +49,8 @@ namespace TLS.GameObjects
             foreach (RoomObject obj in _objects)
             {
                 Color color = obj.Color;
-                if (obj.Type == RoomObjectType.Door && obj.RequiresPower && !PowerRestored)
-                    color = Color.DarkRed;
-                else if (obj.Type == RoomObjectType.Generator && PowerRestored)
-                    color = Color.LightGreen;
-
+                if (obj.Type == RoomObjectType.Door && obj.RequiresPower && !PowerRestored) color = Color.DarkRed;
+                else if (obj.Type == RoomObjectType.Generator && PowerRestored) color = Color.LightGreen;
                 spriteBatch.Draw(_pixel, obj.Bounds, color);
             }
         }
@@ -76,9 +58,7 @@ namespace TLS.GameObjects
         private void Build()
         {
             _objects.Clear();
-
             _objects.Add(new RoomObject(RoomObjectType.Floor, new Rectangle(0, 0, 640, 360), new Color(28, 31, 38)));
-
             const int wall = 12;
             _objects.Add(new RoomObject(RoomObjectType.Wall, new Rectangle(0, 0, 640, wall), new Color(55, 58, 66), true));
             _objects.Add(new RoomObject(RoomObjectType.Wall, new Rectangle(0, 348, 640, wall), new Color(55, 58, 66), true));
@@ -119,6 +99,7 @@ namespace TLS.GameObjects
         {
             _objects.Add(new RoomObject(RoomObjectType.Terminal, new Rectangle(250, 95, 120, 35), new Color(40, 55, 60), true, true));
             _objects.Add(new RoomObject(RoomObjectType.Decoration, new Rectangle(100, 210, 160, 30), new Color(55, 58, 63), true));
+            AddDoor(new Rectangle(470, 145, 28, 70), 4, new Vector2(45, 180), true);
             AddDoor(new Rectangle(470, 0, 70, 28), 1, new Vector2(505, 310), false);
         }
 
@@ -126,7 +107,7 @@ namespace TLS.GameObjects
         {
             _objects.Add(new RoomObject(RoomObjectType.Radio, new Rectangle(285, 120, 70, 45), new Color(75, 82, 86), true, true, -1, default, "Press E to listen to the radio"));
             _objects.Add(new RoomObject(RoomObjectType.Decoration, new Rectangle(170, 240, 300, 25), new Color(55, 58, 63), true));
-            AddDoor(new Rectangle(0, 145, 28, 70), 1, new Vector2(585, 180), false);
+            AddDoor(new Rectangle(0, 145, 28, 70), 3, new Vector2(450, 180), true);
         }
 
         private void AddDoor(Rectangle bounds, int targetRoom, Vector2 targetPosition, bool requiresPower)
