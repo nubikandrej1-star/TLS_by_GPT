@@ -82,10 +82,8 @@ namespace The_Last_Signal
             if (_messageTime > 0)
                 _messageTime -= (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-            if (Pressed(keyboard, Keys.F5))
-                SaveGame();
-            if (Pressed(keyboard, Keys.F9))
-                LoadGame();
+            if (Pressed(keyboard, Keys.F5)) SaveGame();
+            if (Pressed(keyboard, Keys.F9)) LoadGame();
 
             StationRoom room = _rooms[_currentRoom];
             room.SetPower(_powerRestored);
@@ -161,7 +159,7 @@ namespace The_Last_Signal
                     if (!_signalHeard)
                     {
                         _signalHeard = true;
-                        SetMessage("SIGNAL FOUND: "...if anyone can hear this, do not come outside..."", 9f);
+                        SetMessage("SIGNAL FOUND: \"...if anyone can hear this, do not come outside...\"", 9f);
                         MediaPlayer.Volume = 0.5f;
                     }
                     else if (!_gameCompleted)
@@ -257,40 +255,40 @@ namespace The_Last_Signal
         protected override void Draw(GameTime gameTime)
         {
             GraphicsDevice.Clear(new Color(7, 9, 13));
-            _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+            _spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: Matrix.CreateScale(1.5f));
 
             _rooms[_currentRoom].Draw(_spriteBatch);
             _player.Draw(_spriteBatch);
 
-            DrawPanel(new Rectangle(0, 0, 960, 72), new Color(7, 10, 15, 225));
-            _spriteBatch.DrawString(_hudFont, "THE LAST SIGNAL", new Vector2(18, 9), new Color(180, 205, 213));
-            _spriteBatch.DrawString(_hudFont, _rooms[_currentRoom].Name, new Vector2(18, 31), Color.White);
+            DrawPanel(new Rectangle(0, 0, 640, 48), new Color(7, 10, 15, 235));
+            _spriteBatch.DrawString(_hudFont, "THE LAST SIGNAL", new Vector2(12, 5), new Color(180, 205, 213));
+            _spriteBatch.DrawString(_hudFont, _rooms[_currentRoom].Name, new Vector2(12, 25), Color.White);
 
             string objective = _gameCompleted
                 ? "Objective: Chapter complete"
                 : !_powerRestored
-                    ? "Objective: Restore power in the Generator Room"
+                    ? "Objective: Restore power in Generator Room"
                     : !_terminalRead
-                        ? "Objective: Read the terminal in the Control Room"
+                        ? "Objective: Read the terminal in Control Room"
                         : !_signalHeard
-                            ? "Objective: Tune the radio in the Radio Room"
+                            ? "Objective: Tune the radio in Radio Room"
                             : "Objective: Listen to the signal again";
-            _spriteBatch.DrawString(_hudFont, objective, new Vector2(390, 12), new Color(190, 202, 190));
+            _spriteBatch.DrawString(_hudFont, objective, new Vector2(255, 7), new Color(190, 202, 190));
 
             string status = "POWER " + (_powerRestored ? "ONLINE" : "OFFLINE")
                 + "   LOG " + (_terminalRead ? "READ" : "UNREAD")
                 + "   SIGNAL " + (_signalHeard ? "FOUND" : "UNKNOWN");
-            _spriteBatch.DrawString(_hudFont, status, new Vector2(390, 34), new Color(135, 151, 161));
+            _spriteBatch.DrawString(_hudFont, status, new Vector2(255, 27), new Color(135, 151, 161));
 
             if (_messageTime > 0)
             {
-                DrawPanel(new Rectangle(24, 438, 912, 72), new Color(7, 10, 15, 225));
-                _spriteBatch.DrawString(_hudFont, _message, new Vector2(42, 452), Color.White);
+                DrawPanel(new Rectangle(16, 278, 608, 54), new Color(7, 10, 15, 235));
+                _spriteBatch.DrawString(_hudFont, _message, new Vector2(26, 289), Color.White);
             }
 
-            DrawPanel(new Rectangle(0, 516, 960, 24), new Color(7, 10, 15, 220));
+            DrawPanel(new Rectangle(0, 338, 640, 22), new Color(7, 10, 15, 230));
             _spriteBatch.DrawString(_hudFont, "WASD Move   SHIFT Run   E Interact   F5 Save   F9 Load   ESC Quit",
-                new Vector2(18, 519), new Color(145, 155, 165));
+                new Vector2(12, 341), new Color(145, 155, 165));
 
             _spriteBatch.End();
             base.Draw(gameTime);
