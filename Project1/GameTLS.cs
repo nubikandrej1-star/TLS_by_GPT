@@ -1,156 +1,304 @@
-﻿using System;
+using System;
 using System.IO;
+using System.Globalization;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using TLS;
-using TLS.GameObjects;
-using Serilog;
-using Serilog.Core;
-using System.Collections.Generic;
-using Microsoft.Xna.Framework.Audio;
 using Microsoft.Xna.Framework.Media;
+using TLS.GameObjects;
 
 namespace The_Last_Signal
 {
     public class GameTLS : Game
     {
-        private GraphicsDeviceManager _graphics;
+        private readonly GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch = default!;
-
-        private TextureAtlas _textureAtlas = default!;
-        public static Room[] rooms = new Room[2];
-        public static uint currentRoom = 0;
-
+        private Texture2D _pixel = default!;
+        private SpriteFont _hudFont = default!;
         private Song _theme = default!;
-
         private Player _player = default!;
-
-        private static Logger _log = new LoggerConfiguration().MinimumLevel.Verbose()
-            .WriteTo.File(
-                "logs/app-.txt",
-                rollingInterval: RollingInterval.Day)
-            .CreateLogger();
+        private StationRoom[] _rooms = Array.Empty<StationRoom>();
+        private int _currentRoom;
+        private KeyboardState _previousKeyboard;
+        private bool _powerRestored;
+        private bool _terminalRead;
+        private bool _signalHeard;
+        private bool _gameCompleted;
+        private string _message = "You are alone. Find out why the station went silent.";
+        private float _messageTime = 8f;
+        private string _savePath = string.Empty;
 
         public GameTLS()
         {
-            _graphics = new GraphicsDeviceManager(this);
-            //640 x 360 || 320 x 180
-            _graphics.PreferredBackBufferWidth = 640;
-            _graphics.PreferredBackBufferHeight = 360;
-            _graphics.IsFullScreen = true;
-            _graphics.ApplyChanges();
-
+            _graphics = new GraphicsDeviceManager(this)
+            {
+                PreferredBackBufferWidth = 960,
+                PreferredBackBufferHeight = 540,
+                IsFullScreen = false,
+                SynchronizeWithVerticalRetrace = true
+            };
             Window.Title = "The Last Signal";
-
             Content.RootDirectory = "Content";
-            IsMouseVisible = true;
-        }
-
-        protected override void Initialize()
-        {
-            // TODO: Add your initialization logic her
-            try
-            {
-                _textureAtlas = new TextureAtlas(Content.Load<Texture2D>("Textures/RadioAtlas"));
-                _player = Player.CreatePlayer(Content.Load<Texture2D>("Textures/PlayerAtlas"));
-                _theme = Content.Load<Song>("Songs/Alone");
-                MediaPlayer.IsRepeating = true;
-                MediaPlayer.Volume = 0.4f;
-            }
-            catch (Exception e)
-            {
-                _log.Debug(e.Message + "\n");
-                throw;
-            }
-            base.Initialize();
+            IsMouseVisible = false;
         }
 
         protected override void LoadContent()
         {
-            try
+            _spriteBatch = new SpriteBatch(GraphicsDevice);
+            _pixel = new Texture2D(GraphicsDevice, 1, 1);
+            _pixel.SetData(new[] { Color.White });
+            _hudFont = Content.Load<SpriteFont>("Fonts/Hud");
+            _player = Player.CreatePlayer(Content.Load<Texture2D>("Textures/PlayerAtlas"));
+            _theme = Content.Load<Song>("Songs/Alone");
+
+            _rooms = new[]
             {
-                List<int> numbers = new List<int> { 1, 2, 3 };
-                _spriteBatch = new SpriteBatch(GraphicsDevice);
+                new StationRoom("Station Entrance", _pixel),
+                new StationRoom("Main Corridor", _pixel),
+                new StationRoom("Generator Room", _pixel),
+                new StationRoom("Control Room", _pixel),
+                new StationRoom("Radio Room", _pixel)
+            };
 
-                // TODO: use this.Content to load your game content here
-                _textureAtlas.LoadFromFile("TestAtlas");
-                rooms[0] = new Room(Content);
-                rooms[1] = new Room(Content);
-                /*
-                _textureAtlas.AddRegion("radio-1", 0, 0, 32, 15);
-                _textureAtlas.AddRegion("radio-2", 32, 0, 32, 15);
-                _textureAtlas.AddRegion("radio-3", 0, 16, 32, 15);
-                _textureAtlas.AddRegion("radio-4", 32, 16, 32, 15);
+            string saveDirectory = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "TheLastSignal");
+            Directory.CreateDirectory(saveDirectory);
+            _savePath = Path.Combine(saveDirectory, "save.dat");
 
-                TextureRegion[] framesArr = { 
-                    _textureAtlas.GetRegion("radio-1"), _textureAtlas.GetRegion("radio-2"),
-                    _textureAtlas.GetRegion("radio-3"), _textureAtlas.GetRegion("radio-4")
-                };
-                _textureAtlas.AddAnimation("radioAnimation", new Animation(framesArr,250));
-                */
-                if (File.Exists("TestAtlas"))
-                {
-                    rooms[currentRoom].AddHitbox(_textureAtlas.CreateAnimatedSprite("radioAnimation"), 1);
-                    //_textureAtlas.ToFile("TestAtlas");
-                }
-                else
-                {
-                    using (File.Create("TestAtlas")) { }
-                    rooms[currentRoom].AddHitbox(_textureAtlas.CreateAnimatedSprite("radioAnimation"), 1);
-                }
-                rooms[currentRoom].GetHitbox(0).SetAnimation(0);
-                rooms[currentRoom].GetHitbox(0).Scale = new Vector2(3.0f);
-                rooms[currentRoom].GetHitbox(0).CorrectHytboxByScale();
-                rooms[currentRoom].GetHitbox(0).Position = new Vector2(Window.ClientBounds.Width,Window.ClientBounds.Height) * 0.5f;
-                rooms[currentRoom].GetHitbox(0).HitboxType = HitboxType.StopWalking;
+            MediaPlayer.IsRepeating = true;
+            MediaPlayer.Volume = 0.25f;
+            MediaPlayer.Play(_theme);
 
-                MediaPlayer.Play(_theme);
-            }
-            catch(Exception e)
-            {
-                _log.Debug(e.Message+"\n");
-                throw;
-            }
-            
+            _currentRoom = 0;
+            _player.TeleportTo(new Vector2(520, 180));
         }
 
         protected override void Update(GameTime gameTime)
         {
-            if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
-            {
+            KeyboardState keyboard = Keyboard.GetState();
+            if (keyboard.IsKeyDown(Keys.Escape))
                 Exit();
+
+            if (_messageTime > 0)
+                _messageTime -= (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            if (Pressed(keyboard, Keys.F5)) SaveGame();
+            if (Pressed(keyboard, Keys.F9)) LoadGame();
+
+            StationRoom room = _rooms[_currentRoom];
+            room.SetPower(_powerRestored);
+            _player.Update(gameTime, keyboard, room);
+
+            if (Pressed(keyboard, Keys.E))
+                Interact(room);
+
+            _previousKeyboard = keyboard;
+            base.Update(gameTime);
+        }
+
+        private bool Pressed(KeyboardState state, Keys key) =>
+            state.IsKeyDown(key) && !_previousKeyboard.IsKeyDown(key);
+
+        private void SetMessage(string message, float seconds = 5f)
+        {
+            _message = message;
+            _messageTime = seconds;
+        }
+
+        private void Interact(StationRoom room)
+        {
+            RoomObject? target = room.GetInteractable(_player.Bounds);
+            if (target == null)
+            {
+                SetMessage("Nothing within reach.");
+                return;
             }
 
-            // TODO: Add your update logic here
-            rooms[currentRoom].GetHitbox(0).Update(gameTime);
-            _player.Update(gameTime, Keyboard.GetState());
+            switch (target.Type)
+            {
+                case RoomObjectType.Generator:
+                    if (!_powerRestored)
+                    {
+                        _powerRestored = true;
+                        foreach (StationRoom stationRoom in _rooms)
+                            stationRoom.SetPower(true);
+                        SetMessage("The generator coughs back to life. Somewhere, a relay clicks.");
+                        MediaPlayer.Volume = 0.38f;
+                    }
+                    break;
 
-            base.Update(gameTime);
+                case RoomObjectType.Terminal:
+                    if (!_powerRestored)
+                    {
+                        SetMessage("The terminal has no power.");
+                        break;
+                    }
+
+                    if (!_terminalRead)
+                    {
+                        _terminalRead = true;
+                        SetMessage("LOG 04: Evacuation cancelled. The radio room received a signal AFTER the last broadcast ended.", 8f);
+                    }
+                    else
+                    {
+                        SetMessage("LOG 04 remains on screen. No personnel records follow it.");
+                    }
+                    break;
+
+                case RoomObjectType.Radio:
+                    if (!_powerRestored)
+                    {
+                        SetMessage("The radio is dead. Restore power first.");
+                        break;
+                    }
+                    if (!_terminalRead)
+                    {
+                        SetMessage("The receiver is locked to a channel marked in the control-room log. Check the terminal.");
+                        break;
+                    }
+                    if (!_signalHeard)
+                    {
+                        _signalHeard = true;
+                        SetMessage("SIGNAL FOUND: \"...if anyone can hear this, do not come outside...\"", 9f);
+                        MediaPlayer.Volume = 0.5f;
+                    }
+                    else if (!_gameCompleted)
+                    {
+                        _gameCompleted = true;
+                        SetMessage("END OF CHAPTER ONE. The signal repeats your own voice, recorded tomorrow.", 10f);
+                    }
+                    else
+                    {
+                        SetMessage("The signal keeps repeating. It never answers questions.");
+                    }
+                    break;
+
+                case RoomObjectType.Door:
+                    if (target.RequiresPower && !_powerRestored)
+                    {
+                        SetMessage("The magnetic lock has no power.");
+                        break;
+                    }
+
+                    _currentRoom = target.TargetRoom;
+                    _player.TeleportTo(target.TargetPosition);
+                    SetMessage(_rooms[_currentRoom].Name, 2.5f);
+                    break;
+            }
+        }
+
+        private void SaveGame()
+        {
+            try
+            {
+                Vector2 position = _player.Position;
+                File.WriteAllLines(_savePath, new[]
+                {
+                    "TLS_SAVE_1",
+                    _currentRoom.ToString(CultureInfo.InvariantCulture),
+                    position.X.ToString(CultureInfo.InvariantCulture),
+                    position.Y.ToString(CultureInfo.InvariantCulture),
+                    _powerRestored.ToString(),
+                    _terminalRead.ToString(),
+                    _signalHeard.ToString(),
+                    _gameCompleted.ToString()
+                });
+                SetMessage("Game saved. F9 loads this checkpoint.");
+            }
+            catch (Exception)
+            {
+                SetMessage("Could not save the game.");
+            }
+        }
+
+        private void LoadGame()
+        {
+            try
+            {
+                if (!File.Exists(_savePath))
+                {
+                    SetMessage("No save found. Press F5 to create one.");
+                    return;
+                }
+
+                string[] data = File.ReadAllLines(_savePath);
+                if (data.Length < 8 || data[0] != "TLS_SAVE_1")
+                {
+                    SetMessage("Save file is invalid.");
+                    return;
+                }
+
+                int room = int.Parse(data[1], CultureInfo.InvariantCulture);
+                if (room < 0 || room >= _rooms.Length)
+                {
+                    SetMessage("Save file contains an invalid room.");
+                    return;
+                }
+
+                _currentRoom = room;
+                _player.TeleportTo(new Vector2(
+                    float.Parse(data[2], CultureInfo.InvariantCulture),
+                    float.Parse(data[3], CultureInfo.InvariantCulture)));
+                _powerRestored = bool.Parse(data[4]);
+                _terminalRead = bool.Parse(data[5]);
+                _signalHeard = bool.Parse(data[6]);
+                _gameCompleted = bool.Parse(data[7]);
+
+                foreach (StationRoom stationRoom in _rooms)
+                    stationRoom.SetPower(_powerRestored);
+
+                SetMessage("Checkpoint loaded.");
+            }
+            catch (Exception)
+            {
+                SetMessage("Could not load the save file.");
+            }
         }
 
         protected override void Draw(GameTime gameTime)
         {
-            try
+            GraphicsDevice.Clear(new Color(7, 9, 13));
+            _spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: Matrix.CreateScale(1.5f));
+
+            _rooms[_currentRoom].Draw(_spriteBatch);
+            _player.Draw(_spriteBatch);
+
+            DrawPanel(new Rectangle(0, 0, 640, 48), new Color(7, 10, 15, 235));
+            _spriteBatch.DrawString(_hudFont, "THE LAST SIGNAL", new Vector2(12, 5), new Color(180, 205, 213));
+            _spriteBatch.DrawString(_hudFont, _rooms[_currentRoom].Name, new Vector2(12, 25), Color.White);
+
+            string objective = _gameCompleted
+                ? "Objective: Chapter complete"
+                : !_powerRestored
+                    ? "Objective: Restore power in Generator Room"
+                    : !_terminalRead
+                        ? "Objective: Read the terminal in Control Room"
+                        : !_signalHeard
+                            ? "Objective: Tune the radio in Radio Room"
+                            : "Objective: Listen to the signal again";
+            _spriteBatch.DrawString(_hudFont, objective, new Vector2(255, 7), new Color(190, 202, 190));
+
+            string status = "POWER " + (_powerRestored ? "ONLINE" : "OFFLINE")
+                + "   LOG " + (_terminalRead ? "READ" : "UNREAD")
+                + "   SIGNAL " + (_signalHeard ? "FOUND" : "UNKNOWN");
+            _spriteBatch.DrawString(_hudFont, status, new Vector2(255, 27), new Color(135, 151, 161));
+
+            if (_messageTime > 0)
             {
-                GraphicsDevice.Clear(Color.Black);
-
-                // TODO: Add your drawing code here
-                _spriteBatch.Begin(sortMode: SpriteSortMode.FrontToBack);
-
-                rooms[currentRoom].Draw(_spriteBatch);
-                _player.Draw(_spriteBatch);
-
-                _spriteBatch.End();
-
-                base.Draw(gameTime);
+                DrawPanel(new Rectangle(16, 278, 608, 54), new Color(7, 10, 15, 235));
+                _spriteBatch.DrawString(_hudFont, _message, new Vector2(26, 289), Color.White);
             }
-            catch (Exception e)
-            {
-                _log.Debug(e.Message + "\n");
-                throw;
-            }
+
+            DrawPanel(new Rectangle(0, 338, 640, 22), new Color(7, 10, 15, 230));
+            _spriteBatch.DrawString(_hudFont, "WASD Move   SHIFT Run   E Interact   F5 Save   F9 Load   ESC Quit",
+                new Vector2(12, 341), new Color(145, 155, 165));
+
+            _spriteBatch.End();
+            base.Draw(gameTime);
         }
+
+        private void DrawPanel(Rectangle bounds, Color color) =>
+            _spriteBatch.Draw(_pixel, bounds, color);
     }
 }
