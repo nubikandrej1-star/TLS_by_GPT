@@ -37,19 +37,12 @@ namespace TLS.GameObjects
 
             foreach (RoomObject obj in _objects)
             {
-                if (!area.Intersects(obj.Bounds))
-                    continue;
-
-                if (obj.Type == RoomObjectType.Generator && !PowerRestored)
-                    return obj;
-                if (obj.Type == RoomObjectType.Terminal && PowerRestored)
-                    return obj;
-                if (obj.Type == RoomObjectType.Radio)
-                    return obj;
-                if (obj.Type == RoomObjectType.Door && (!obj.RequiresPower || PowerRestored))
-                    return obj;
+                if (!area.Intersects(obj.Bounds)) continue;
+                if (obj.Type == RoomObjectType.Generator && !PowerRestored) return obj;
+                if (obj.Type == RoomObjectType.Terminal && PowerRestored) return obj;
+                if (obj.Type == RoomObjectType.Radio) return obj;
+                if (obj.Type == RoomObjectType.Door && (!obj.RequiresPower || PowerRestored)) return obj;
             }
-
             return null;
         }
 
@@ -58,7 +51,6 @@ namespace TLS.GameObjects
             foreach (RoomObject obj in _objects)
             {
                 Color color = obj.Color;
-
                 if (obj.Type == RoomObjectType.Door && obj.RequiresPower && !PowerRestored)
                     color = new Color(105, 35, 42);
                 else if (obj.Type == RoomObjectType.Generator)
@@ -71,10 +63,8 @@ namespace TLS.GameObjects
                 spriteBatch.Draw(_pixel, obj.Bounds, color);
             }
 
-            // Cold ceiling lights and floor seams give each room some visual structure.
             for (int x = 32; x < 620; x += 64)
                 spriteBatch.Draw(_pixel, new Rectangle(x, 18, 22, 3), new Color(105, 120, 130, 110));
-
             for (int y = 55; y < 340; y += 48)
                 spriteBatch.Draw(_pixel, new Rectangle(18, y, 604, 1), new Color(70, 75, 82, 70));
         }
@@ -100,7 +90,7 @@ namespace TLS.GameObjects
         {
             _objects.Add(new RoomObject(RoomObjectType.Decoration, new Rectangle(80, 75, 130, 22), new Color(70, 72, 78)));
             _objects.Add(new RoomObject(RoomObjectType.Decoration, new Rectangle(80, 250, 150, 20), new Color(65, 67, 72)));
-            AddDoor(new Rectangle(600, 145, 28, 70), 1, new Vector2(585, 180), false);
+            AddDoor(new Rectangle(600, 145, 28, 70), 1, new Vector2(35, 180), false);
         }
 
         private void BuildCorridor()
