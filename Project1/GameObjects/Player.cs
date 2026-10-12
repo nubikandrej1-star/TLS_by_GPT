@@ -27,6 +27,7 @@ namespace TLS.GameObjects
         public static Player? GetPlayer() => _elum;
 
         public Rectangle Bounds => _collisionSprite.Hitbox;
+        public Vector2 Position => _collisionSprite.Position;
 
         public void Draw(SpriteBatch spriteBatch) => _collisionSprite.Draw(spriteBatch);
 
