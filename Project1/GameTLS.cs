@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Globalization;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -191,12 +192,13 @@ namespace The_Last_Signal
         {
             try
             {
+                Vector2 position = _player.Position;
                 File.WriteAllLines(_savePath, new[]
                 {
                     "TLS_SAVE_1",
-                    _currentRoom.ToString(),
-                    _player.Bounds.X.ToString(),
-                    _player.Bounds.Y.ToString(),
+                    _currentRoom.ToString(CultureInfo.InvariantCulture),
+                    position.X.ToString(CultureInfo.InvariantCulture),
+                    position.Y.ToString(CultureInfo.InvariantCulture),
                     _powerRestored.ToString(),
                     _terminalRead.ToString(),
                     _signalHeard.ToString(),
@@ -227,7 +229,7 @@ namespace The_Last_Signal
                     return;
                 }
 
-                int room = int.Parse(data[1]);
+                int room = int.Parse(data[1], CultureInfo.InvariantCulture);
                 if (room < 0 || room >= _rooms.Length)
                 {
                     SetMessage("Save file contains an invalid room.");
@@ -235,7 +237,9 @@ namespace The_Last_Signal
                 }
 
                 _currentRoom = room;
-                _player.TeleportTo(new Vector2(int.Parse(data[2]), int.Parse(data[3])));
+                _player.TeleportTo(new Vector2(
+                    float.Parse(data[2], CultureInfo.InvariantCulture),
+                    float.Parse(data[3], CultureInfo.InvariantCulture)));
                 _powerRestored = bool.Parse(data[4]);
                 _terminalRead = bool.Parse(data[5]);
                 _signalHeard = bool.Parse(data[6]);
