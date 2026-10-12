@@ -33,14 +33,23 @@ namespace TLS.GameObjects
         public RoomObject? GetInteractable(Rectangle playerBounds)
         {
             Rectangle area = playerBounds;
-            area.Inflate(18, 18);
+            area.Inflate(22, 22);
+
             foreach (RoomObject obj in _objects)
             {
-                if (!area.Intersects(obj.Bounds)) continue;
-                if (obj.Type == RoomObjectType.Generator && !PowerRestored) return obj;
-                if (obj.Type == RoomObjectType.Radio) return obj;
-                if (obj.Type == RoomObjectType.Door && (!obj.RequiresPower || PowerRestored)) return obj;
+                if (!area.Intersects(obj.Bounds))
+                    continue;
+
+                if (obj.Type == RoomObjectType.Generator && !PowerRestored)
+                    return obj;
+                if (obj.Type == RoomObjectType.Terminal && PowerRestored)
+                    return obj;
+                if (obj.Type == RoomObjectType.Radio)
+                    return obj;
+                if (obj.Type == RoomObjectType.Door && (!obj.RequiresPower || PowerRestored))
+                    return obj;
             }
+
             return null;
         }
 
@@ -49,16 +58,31 @@ namespace TLS.GameObjects
             foreach (RoomObject obj in _objects)
             {
                 Color color = obj.Color;
-                if (obj.Type == RoomObjectType.Door && obj.RequiresPower && !PowerRestored) color = Color.DarkRed;
-                else if (obj.Type == RoomObjectType.Generator && PowerRestored) color = Color.LightGreen;
+
+                if (obj.Type == RoomObjectType.Door && obj.RequiresPower && !PowerRestored)
+                    color = new Color(105, 35, 42);
+                else if (obj.Type == RoomObjectType.Generator)
+                    color = PowerRestored ? new Color(85, 145, 105) : new Color(105, 91, 72);
+                else if (obj.Type == RoomObjectType.Terminal)
+                    color = PowerRestored ? new Color(60, 130, 145) : new Color(40, 48, 52);
+                else if (obj.Type == RoomObjectType.Radio)
+                    color = PowerRestored ? new Color(100, 115, 122) : new Color(55, 58, 62);
+
                 spriteBatch.Draw(_pixel, obj.Bounds, color);
             }
+
+            // Cold ceiling lights and floor seams give each room some visual structure.
+            for (int x = 32; x < 620; x += 64)
+                spriteBatch.Draw(_pixel, new Rectangle(x, 18, 22, 3), new Color(105, 120, 130, 110));
+
+            for (int y = 55; y < 340; y += 48)
+                spriteBatch.Draw(_pixel, new Rectangle(18, y, 604, 1), new Color(70, 75, 82, 70));
         }
 
         private void Build()
         {
             _objects.Clear();
-            _objects.Add(new RoomObject(RoomObjectType.Floor, new Rectangle(0, 0, 640, 360), new Color(28, 31, 38)));
+            _objects.Add(new RoomObject(RoomObjectType.Floor, new Rectangle(0, 0, 640, 360), new Color(22, 25, 32)));
             const int wall = 12;
             _objects.Add(new RoomObject(RoomObjectType.Wall, new Rectangle(0, 0, 640, wall), new Color(55, 58, 66), true));
             _objects.Add(new RoomObject(RoomObjectType.Wall, new Rectangle(0, 348, 640, wall), new Color(55, 58, 66), true));
@@ -76,28 +100,28 @@ namespace TLS.GameObjects
         {
             _objects.Add(new RoomObject(RoomObjectType.Decoration, new Rectangle(80, 75, 130, 22), new Color(70, 72, 78)));
             _objects.Add(new RoomObject(RoomObjectType.Decoration, new Rectangle(80, 250, 150, 20), new Color(65, 67, 72)));
-            AddDoor(new Rectangle(600, 145, 28, 70), 1, new Vector2(35, 180), false);
+            AddDoor(new Rectangle(600, 145, 28, 70), 1, new Vector2(585, 180), false);
         }
 
         private void BuildCorridor()
         {
             _objects.Add(new RoomObject(RoomObjectType.Decoration, new Rectangle(80, 80, 480, 18), new Color(48, 51, 58)));
             _objects.Add(new RoomObject(RoomObjectType.Decoration, new Rectangle(80, 260, 480, 18), new Color(48, 51, 58)));
-            AddDoor(new Rectangle(0, 145, 28, 70), 0, new Vector2(585, 180), false);
+            AddDoor(new Rectangle(0, 145, 28, 70), 0, new Vector2(570, 180), false);
             AddDoor(new Rectangle(300, 12, 70, 28), 2, new Vector2(335, 315), false);
             AddDoor(new Rectangle(470, 332, 70, 28), 3, new Vector2(505, 45), true);
         }
 
         private void BuildGenerator()
         {
-            _objects.Add(new RoomObject(RoomObjectType.Generator, new Rectangle(250, 130, 140, 110), new Color(65, 70, 76), true, false, -1, default, "Press E to start the generator"));
+            _objects.Add(new RoomObject(RoomObjectType.Generator, new Rectangle(250, 130, 140, 110), new Color(65, 70, 76), true, false, -1, default, "Press E to restart the generator"));
             _objects.Add(new RoomObject(RoomObjectType.Decoration, new Rectangle(100, 80, 100, 30), new Color(50, 53, 58)));
             AddDoor(new Rectangle(300, 332, 70, 28), 1, new Vector2(335, 45), false);
         }
 
         private void BuildControl()
         {
-            _objects.Add(new RoomObject(RoomObjectType.Terminal, new Rectangle(250, 95, 120, 35), new Color(40, 55, 60), true, true));
+            _objects.Add(new RoomObject(RoomObjectType.Terminal, new Rectangle(250, 95, 120, 35), new Color(40, 55, 60), true, true, -1, default, "Press E to read the terminal"));
             _objects.Add(new RoomObject(RoomObjectType.Decoration, new Rectangle(100, 210, 160, 30), new Color(55, 58, 63), true));
             AddDoor(new Rectangle(470, 145, 28, 70), 4, new Vector2(45, 180), true);
             AddDoor(new Rectangle(470, 0, 70, 28), 1, new Vector2(505, 310), false);
@@ -105,7 +129,7 @@ namespace TLS.GameObjects
 
         private void BuildRadio()
         {
-            _objects.Add(new RoomObject(RoomObjectType.Radio, new Rectangle(285, 120, 70, 45), new Color(75, 82, 86), true, true, -1, default, "Press E to listen to the radio"));
+            _objects.Add(new RoomObject(RoomObjectType.Radio, new Rectangle(285, 120, 70, 45), new Color(75, 82, 86), true, true, -1, default, "Press E to tune the radio"));
             _objects.Add(new RoomObject(RoomObjectType.Decoration, new Rectangle(170, 240, 300, 25), new Color(55, 58, 63), true));
             AddDoor(new Rectangle(0, 145, 28, 70), 3, new Vector2(450, 180), true);
         }
